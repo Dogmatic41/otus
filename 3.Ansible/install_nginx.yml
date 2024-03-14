@@ -1,0 +1,42 @@
+---
+- name : Install and configure nginx
+  hosts: nginx
+  become: true
+  vars:
+    nginx_listen_port: 8080
+
+  handlers:
+  - name: started nginx
+    systemd:
+      name: nginx
+      state: started
+      enabled: yes
+  - name: replacing the html file
+    copy:
+      src: ./index.html
+      dest: /usr/share/nginx/html/index.html
+
+  - name: restarted nginx
+    systemd:
+      name: nginx
+      state: restarted
+        
+  tasks:
+  - name: Install nginx
+    apt:
+      name: nginx
+      state: latest
+    notify:
+    - started nginx
+    - replacing the html file
+    tags:
+    - nginx-package
+
+  - name: Create nginx config file from template
+    template:
+      src: templates/nginx.conf.j2
+      dest: /etc/nginx/nginx.conf
+    notify:
+    - restarted nginx
+    tags:
+    - nginx-configuration 
