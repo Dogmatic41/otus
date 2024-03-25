@@ -1,0 +1,6 @@
+---
+- name: passing and executing a bash script "create_raid.sh"
+  hosts: raid
+  tasks:
+    - name: Copy and execute "create_raid.sh"
+      script: ./script/create_raid.sh
