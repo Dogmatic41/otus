@@ -1,0 +1,9 @@
+- hosts: raid
+  roles:
+    - role: raid
+      raid_level: raid10
+      raid_name: my_cool_raid
+      raid_block_devs: [ sdb, sdc, sdd, sde ]
+      raid_backend: lvmraid
+      raid_use_vdo: yes
+      raid_add_to_fstab: no
