@@ -1,0 +1,2 @@
+[web]
+zfs ansible_host=127.0.0.1 ansible_port=2222 ansible_private_key_file=/Users/admin/otus/7.ZFS/.vagrant/machines/zfs/virtualbox/private_key

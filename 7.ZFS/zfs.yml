@@ -1,0 +1,70 @@
+---
+- name: create zfs pool 
+  hosts: zfs
+  become: true
+
+  tasks:
+  - name: Tasks.1  Display Disk Information
+    debug:
+      var: ansible_facts.devices.keys()
+
+  - pause:
+      prompt: "Do you want to configuring the zfs pool (yes/no)?"
+    register: my_pause
+    delegate_to: zfs
+
+  - name: Tasks.1  Create pool
+    command: zpool create {{ item.pool }} mirror {{ item.disk }} 
+    with_items:
+    - { pool: pool1, disk: /dev/sdb /dev/sdc }
+    - { pool: pool2, disk: /dev/sdd /dev/sde }
+    - { pool: pool3, disk: /dev/sdf /dev/sdg }
+    - { pool: pool4, disk: /dev/sdh /dev/sdi }
+    when: hostvars['zfs'].my_pause.user_input | bool
+
+  - name: Tasks.1  Configuring the zfs pool
+    command: zfs set compression={{ item.compressions }}  {{ item.pool }} 
+    with_items:
+    - { compressions: lzjb, pool: pool1 }
+    - { compressions: lz4, pool: pool2 }
+    - { compressions: gzip-9, pool: pool3 }
+    - { compressions: zle, pool: pool4 }
+    when: hostvars['zfs'].my_pause.user_input | bool
+
+  - name: Tasks.1  Copy log file
+    copy:
+      src: "{{ item.src }}"
+      dest: "{{ item.dest }}"
+    loop:
+    - src: ./pg2600.converter.log 
+      dest: /pool1/
+    - src: ./pg2600.converter.log 
+      dest: /pool2/
+    - src: ./pg2600.converter.log 
+      dest: /pool3/
+    - src: ./pg2600.converter.log 
+      dest: /pool4/
+    when: hostvars['zfs'].my_pause.user_input | bool
+
+  - name: Tasks.1 zfs get all
+    shell: zfs get all | grep compressratio | grep -v ref
+    register: zfs_all
+    when: hostvars['zfs'].my_pause.user_input | bool
+  
+  - debug: msg="{{ zfs_all.stdout }}"
+
+  - name: Tasks.2  Download the file and unzip it
+    unarchive:
+      src: https://drive.usercontent.google.com/download?id=1MvrcEp-WgAQe57aDEzxSRalPAwbNN1Bb&export=download
+      dest: /home/vagrant
+      remote_src: yes
+
+  - name: Tasks.2  Import otus pool
+    command: zpool import -d zpoolexport/ otus
+
+  - name: Tasks.2  ZPool status
+    command: zpool status
+    register: zfs_status
+
+
+  - debug: msg="{{ zfs_status.stdout }}"
