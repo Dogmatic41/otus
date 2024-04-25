@@ -1,0 +1,46 @@
+---
+- name: lvm setup
+  hosts: grub
+  become: true
+
+  tasks:
+  - name: vgrename
+    command: vgrename vg_home Otus9
+
+  - name: correction /etc/fstab
+    command: sed -i 's/vg_home/Otus9/g' /etc/fstab
+  
+  - name: show vgs
+    command: vgs 
+    register: vgname 
+
+  - debug: msg="{{ vgname }}"
+
+  - name: Re-creating initrd image
+    shell: mkinitrd -f -v /boot/initramfs-$(uname -r).img $(uname -r)
+
+  - name: New modules initrd
+    command: mkdir /usr/lib/dracut/modules.d/01test
+    
+  - name: copy bash scripts
+    copy:
+      src: "{{ item.src }}"
+      dest: "{{ item.dest }}"
+    loop:
+    - src: ./script/md-stp.sh
+      dest: /usr/lib/dracut/modules.d/01test
+    - src: ./script/test.sh
+      dest: /usr/lib/dracut/modules.d/01test
+
+  - name: rights to md-stp.sh 
+    file: 
+      path: /usr/lib/dracut/modules.d/01test/md-stp.sh
+      mode: +x
+    
+  - name: rights to test.sh 
+    file:
+      path: /usr/lib/dracut/modules.d/01test/test.sh
+      mode: +x
+
+  - name: Re-creating initrd image
+    shell: mkinitrd -f -v /boot/initramfs-$(uname -r).img $(uname -r)
