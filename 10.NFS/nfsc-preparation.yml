@@ -1,0 +1,26 @@
+---
+- name: preparation nfsc
+  hosts:  nfsc
+  become: true
+
+  tasks:
+  - name: install nfs-kernel-server
+    apt: 
+      name: nfs-kernel-server
+      state: latest
+
+  - name: создание структуры экспорта директории 
+    shell: echo "192.168.50.10:/srv/share/ /mnt nfs vers=3,noauto,x-systemd.automount 0 0" >> /etc/fstab
+
+  - name: запуск firewalld 
+    systemd:
+      name: remote-fs.target
+      daemon_reload: true
+      state: restarted
+
+  - name: 
+    shell: mount | grep mnt 
+    register: mnt
+
+  - debug: msg="{{ mnt }}"
+
