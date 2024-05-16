@@ -1,0 +1,28 @@
+---
+- name: preparation nfss
+  hosts:  nfss
+  become: true
+
+  tasks:
+  - name: install nfs-kernel-server
+    apt: 
+      name: nfs-kernel-server
+      state: latest
+    
+  - name: создание шаренной папки
+    file:
+      path: /srv/share/upload
+      state: directory
+      mode: '0777'
+      owner: nobody
+      group: nogroup
+
+  - name: создание структуры экспорта директории 
+    shell: echo "/srv/share 192.168.50.11/32(rw,sync,root_squash)" >>  /etc/exports 
+
+  - name: экспорт директории
+    shell: exportfs -r && exportfs -s 
+    register: exportfs
+
+  - debug: msg="{{ exportfs }}"
+      
