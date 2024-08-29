@@ -1,0 +1,78 @@
+---
+- name: Playbook to create users and group
+  hosts: all
+  become: yes  
+  vars:
+    user_password: "{{ 'Otus2022!' | password_hash('sha512') }}"  # Создаём хеш пароля Otus2022!
+
+  tasks:
+    - name: Create users otusadm and otus with password
+      user:
+        shell: /bin/bash
+        name: "{{ item }}"
+        password: "{{ user_password }}" 
+        state: present
+      with_items:
+      - otusadm
+      - otus
+
+    - name: change KbdInteractiveAuthentication
+      shell: sed -i 's/^KbdInteractiveAuthentication.*$/KbdInteractiveAuthentication yes/' /etc/ssh/sshd_config
+
+    - name: Add a line at the end of the file
+      lineinfile:
+        path: /etc/ssh/sshd_config  
+        line: 'PasswordAuthentication yes' 
+        insertafter: EOF  
+
+    - name: Restart sshd 
+      service: 
+        name: sshd.service
+        state: restarted
+      
+    - name: Create group admin
+      group:
+        name: admin
+        state: present
+
+    - name: Add users to admin group
+      user:
+        name: "{{ item }}"
+        groups: admin
+        append: yes
+      with_items:
+        - otusadm
+        - root
+        - vagrant
+
+    - name: Create a file and write data to it
+      copy:
+        dest: /usr/local/bin/login.sh 
+        content: |
+          #!/bin/bash
+            if [ $(date +%a) = "Sat" ] || [ $(date +%a) = "Sun" ]; then
+              if getent group admin | grep -qw "$PAM_USER"; then
+                      exit 0
+                    else
+                      exit 1
+                  fi
+              else
+                exit 0
+            fi
+      
+    - name: Add execute permission to the file
+      file:
+        path: /usr/local/bin/login.sh
+        mode: '+x' 
+
+    - name: module pam_exec in /etc/pam.d/sshd 
+      lineinfile:
+        path: /etc/pam.d/sshd 
+        line: 'auth required pam_exec.so debug /usr/local/bin/login.sh'  
+        insertafter: EOF 
+    
+    - name: disable ntp
+      shell: sudo timedatectl set-ntp false
+
+    - name: change date 
+      shell: sudo timedatectl set-time "2024-08-24 14:30:00"
