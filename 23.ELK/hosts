@@ -1,0 +1,3 @@
+[vb-otus]
+web ansible_host=127.0.0.1 ansible_port=2222 ansible_private_key_file=/Users/admin/otus/23.ELK/.vagrant/machines/web/virtualbox/private_key
+log ansible_host=127.0.0.1 ansible_port=2200 ansible_private_key_file=/Users/admin/otus/23.ELK/.vagrant/machines/log/virtualbox/private_key

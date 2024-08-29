@@ -1,0 +1,63 @@
+---
+- name: preparing the web server
+  hosts: web  
+  become: yes  
+  tasks:
+
+    - name: Install nginx
+      apt:
+        name: nginx  
+        state: present  
+
+    - name: Replace access_log line in nginx config
+      replace:
+        path: /etc/nginx/nginx.conf  
+        regexp: '^\s*access_log /var/log/nginx/access.log;'  
+        replace: 'access_log syslog:server=192.168.56.15:514,tag=nginx_access,severity=info combined;'  
+
+    - name: Replace error_log line in nginx config
+      replace:
+        path: /etc/nginx/nginx.conf  
+        regexp: '^\s*error_log /var/log/nginx/error.log;'  
+        replace: 'error_log syslog:server=192.168.56.15:514,tag=nginx_error;'  
+
+    - name: Restart rsyslog 
+      service: 
+        name: nginx.service
+        state: restarted
+
+- name: preparing the log server
+  hosts: log
+  become: yes
+  tasks:
+
+    - name: Install rsyslog
+      apt:
+        name: rsyslog
+        state: present
+    
+    - name: Uncomment module lines
+      replace:
+        path: /etc/rsyslog.conf
+        regexp: '^#(module\(load="im(?:udp|tcp)"\))'
+        replace: '\1'
+
+    - name: Uncomment input lines
+      replace:
+        path: /etc/rsyslog.conf
+        regexp: '^#(input\(type="im(?:udp|tcp)" port="514"\))'
+        replace: '\1'
+
+    - name: Append remote log configuration to the end of the file
+      blockinfile:
+        path: /etc/rsyslog.conf 
+        block: |
+          $template RemoteLogs,"/var/log/rsyslog/%HOSTNAME%/%PROGRAMNAME%.log"
+          *.* ?RemoteLogs
+          & ~
+        insertafter: EOF
+
+    - name: Restart rsyslog 
+      service: 
+        name: rsyslog.service
+        state: restarted
