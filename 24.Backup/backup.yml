@@ -1,0 +1,115 @@
+---
+- name: setting up backup via borg
+  hosts: backup
+  become: yes
+  tasks:
+
+  - name: Install bargbackup
+    apt:
+      name: borgbackup
+      state: present
+
+  - name: Create users borg 
+    user:
+      shell: /bin/bash
+      name: borg
+      state: present
+
+  - name: Create /var/backup
+    file:
+      path: /var/backup  
+      state: directory   
+      owner: borg  
+      group: borg
+
+  - name: Create .ssh
+    file:
+      path: /home/borg/.ssh/ 
+      state: directory    
+      owner: borg  
+      group: borg
+
+  - name: Copy authorized_keys
+    copy:
+      src: ./authorized_keys
+      dest: /home/borg/.ssh/
+
+  - name:
+    shell: chown borg:borg /home/borg/.ssh/authorized_keys
+
+- name: setting up the client
+  hosts: client
+  become: yes
+  tasks:
+
+  - name: Install bargbackup
+    apt:
+      name: borgbackup
+      state: present
+
+  - name: Create .ssh
+    file:
+      path: /root/.ssh/  
+      state: directory       
+      owner: root  
+      group: root
+
+  - name: Copy id_rsa
+    copy:
+      src: ./id_rsa
+      dest: /root/.ssh/
+
+  - name:
+    shell: chmod 600 /root/.ssh/id_rsa
+
+  - name: Create borg-backup.service
+    copy:
+      dest: /etc/systemd/system/borg-backup.service
+      content: |
+        [Unit]
+        Description=Borg Backup
+
+        [Service]
+        Type=oneshot
+
+        # Репозиторий
+        Environment=REPO=borg@192.168.11.160:/var/backup/
+        # Что бэкапим
+        Environment=BACKUP_TARGET=/etc
+
+        # Создание бэкапа
+        ExecStart=/bin/borg create \
+            --stats                \
+            ${REPO}::etc-{now:%%Y-%%m-%%d_%%H:%%M:%%S} ${BACKUP_TARGET}
+
+        # Проверка бэкапа
+        ExecStart=/bin/borg check ${REPO}
+
+        # Очистка старых бэкапов
+        ExecStart=/bin/borg prune \
+            --keep-daily  90      \
+            --keep-monthly 12     \
+            --keep-yearly  1       \
+            ${REPO}
+
+  - name: Create borg-backup.service
+    copy:
+      dest: /etc/systemd/system/borg-backup.timer
+      content: |
+        [Unit]
+        Description=Borg Backup
+
+        [Timer]
+        OnUnitActiveSec=5min
+
+        [Install]
+        WantedBy=timers.target
+
+  - name: daemon-reload
+    command: systemctl daemon-reload
+
+  - name: Restart sshd 
+    service: 
+      name: borg-backup.timer 
+      state: started
+      enabled: true
