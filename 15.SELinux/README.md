@@ -23,11 +23,11 @@
 sealert -a /var/log/audit/audit.log
 ```
 Вывод команды указывает на ошибку по нестандартному порту и так же предлагает 3 варианта решение проблемы. 
-Выполняем добавление нестандартного порта в имеющийся тип 
+Выполняем добавление нестандартного порта в имеющийся тип.
 ```
 semanage port -a -t http_port_t -p tcp 4881
 ```
-. В результате **nginx** успешно стартовал.
+В результате **nginx** успешно стартовал.
 
 ![добавление порта][img1]
 
@@ -48,8 +48,8 @@ setsebool -P nis_enabled 1
 
 * Далее в конфигурации **nginx** снова меняем порт и перезапускаем службу **nginx**
 ```
-sed -ie 's/:4881/:4882/g' /etc/nginx/nginx.conf
-sed -i 's/listen       4881;/listen       4882;/' /etc/nginx/nginx.conf
+sed -ie 's/:4882/:4883/g' /etc/nginx/nginx.conf
+sed -i 's/listen       4882;/listen       4883;/' /etc/nginx/nginx.conf
 systemctl restart nginx && systemctl status nginx
 ```
 Повторно смотрим журнал и выполняем установка модуля SELinux
@@ -68,3 +68,36 @@ semodule -i my-nginx_20200.pp
 - Выбрать одно из решений для реализации, предварительно обосновав выбор;
 - Реализовать выбранное решение и продемонстрировать его работоспособность.
 
+### Решение 
+
+* Разворачиваем vagrant стенд из 2 хостов, на которых  ansible-plabook выполняется установка и настройка **dns** (сервер и клиент). На клиентском хосте выполняется попытка обновления зоны, которая падает в ошибку.
+```
+[root@client vagrant]# nsupdate -k /etc/named.zonetransfer.key
+> server 192.168.50.10
+> zone ddns.lab
+> update add www.ddns.lab. 60 A 192.168.50.15
+> send
+update failed: SERVFAIL
+> quit
+```
+
+При изучение журнала аудита 
+```
+audit2why < /var/log/audit/audit.log
+``` 
+находим что SELinux отказывает процессу **isc-worker0000** в изменении файла 
+```
+/etc/named/dynamic/named.ddns.lab.view1.jnl
+```
+
+Чтобы выяснить причину запрета в предустановленной политике - выполняется вывод правил для **named**
+```
+semanage fcontext -l | grep named
+```
+Видно что в правилах разрешено изменение файлов внутри папки **/var/named/dynamic** в то время как в текущей конфигурации они расположены по пути **/etc/named/dynamic**. 
+Есть 2 варианта решения данной проблемы:
+1)Изменить тип контекста безопасности для каталога /etc/named: 
+```
+sudo chcon -R -t named_zone_t /etc/named
+```
+2)Настройка производилась из playbook , то необходимо исправить пути с **/etc/named** на **/var/named**.
