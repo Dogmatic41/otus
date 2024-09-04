@@ -1,4 +1,4 @@
-# Лабораторная работа №18. Архитектура сетей
+# Архитектура сетей
 
 ## Задание: разворачиваем сетевую лабораторию.
 
@@ -168,5 +168,3 @@ Office2----/
 ### Настройка стенда.
 
 * В репозиторий **GitHUB** добавлен [Vagrant файл](https://github.com/Dogmatic41/otus/blob/main/25.Network/Vagrantfile),  который  разворачивает требуемый стенд из 7 виртуалок , а полную настройку сетей на ВМ производим через ansible playbook [network.yml](https://github.com/Dogmatic41/otus/blob/main/25.Network/network.yml)
-
-
