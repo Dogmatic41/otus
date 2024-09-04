@@ -1,0 +1,10 @@
+[routers]
+inetRouter ansible_host=127.0.0.1 ansible_port=2222 ansible_private_key_file=/Users/admin/otus/25.Network/.vagrant/machines/inetRouter/virtualbox/private_key
+centralRouter ansible_host=127.0.0.1 ansible_port=2200 ansible_private_key_file=/Users/admin/otus/25.Network/.vagrant/machines/centralRouter/virtualbox/private_key
+office1Router ansible_host=127.0.0.1 ansible_port=2202 ansible_private_key_file=/Users/admin/otus/25.Network/.vagrant/machines/office1Router/virtualbox/private_key
+office2Router ansible_host=127.0.0.1 ansible_port=2204 ansible_private_key_file=/Users/admin/otus/25.Network/.vagrant/machines/office2Router/virtualbox/private_key
+
+[Server]
+centralServer ansible_host=127.0.0.1 ansible_port=2201 ansible_private_key_file=/Users/admin/otus/25.Network/.vagrant/machines/centralServer/virtualbox/private_key
+office1Server ansible_host=127.0.0.1 ansible_port=2203 ansible_private_key_file=/Users/admin/otus/25.Network/.vagrant/machines/office1Server/virtualbox/private_key
+office2Server ansible_host=127.0.0.1 ansible_port=2205 ansible_private_key_file=/Users/admin/otus/25.Network/.vagrant/machines/office2Server/virtualbox/private_key
