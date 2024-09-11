@@ -1,0 +1,104 @@
+---
+- name: install pxe server 
+  hosts: all
+  become: yes
+  tasks:
+
+  - name: Restart ufw 
+    service: 
+      name: ufw
+      state: stopped
+      enabled: false
+
+  - name: update OS Ubuntu
+    shell: apt update -y && apt upgrade -y
+
+  - name: Install dnsmasq
+    apt:
+      name: dnsmasq
+      state: present
+
+  - name: Creating pxe.conf
+    template: 
+      src: "{{ item.src }}"
+      dest: "{{ item.dest }}"
+      owner: root
+      group: root
+    with_items:
+      - { src: "pxe.conf", dest: "/etc/dnsmasq.d/pxe.conf" }
+
+  - name: Creating directory tftp
+    shell: mkdir -p /srv/tftp
+
+  - name: Copy oracular-netboot-amd64.tar.gz
+    copy: 
+      src: templates/oracular-netboot-amd64.tar.gz
+      dest: /srv/oracular-netboot-amd64.tar.gz
+      owner: root
+      group: root
+
+  - name:
+    shell: tar -xzvf /srv/oracular-netboot-amd64.tar.gz -C /srv/tftp
+  
+  - name: Restart dnsmasq
+    service:
+      name: dnsmasq
+      state: restarted
+
+  - name: Install apache2
+    apt:
+      name: apache2
+      state: present
+
+  - name: Creating directory images
+    shell: mkdir -p /srv/images
+
+  - name: Copy oracular-live-server-amd64.iso
+    copy: 
+      src: templates/oracular-live-server-amd64.iso
+      dest: /srv/images/oracular-live-server-amd64.iso
+      owner: root
+      group: root
+
+  - name: Creating directory images
+    shell: mkdir -p /srv/ks
+
+  - name: Creating user-data 
+    template: 
+      src: "{{ item.src }}"
+      dest: "{{ item.dest }}"
+      owner: root
+      group: root
+    with_items:
+      - { src: "user-data", dest: "/srv/ks/user-data" }
+
+  - name: Creating meta-data
+    shell: touch /srv/ks/meta-data
+  
+  - name: Creating ks-server.conf
+    template: 
+      src: "{{ item.src }}"
+      dest: "{{ item.dest }}"
+      owner: root
+      group: root
+    with_items:
+      - { src: "ks-server.conf", dest: "/etc/apache2/sites-available/ks-server.conf" }
+
+  - name: Replace error_log line in nginx config
+    replace:
+      path: /srv/tftp/amd64/pxelinux.cfg/default 
+      regexp: '^APPEND.*$'  
+      replace: 'APPEND root=/dev/ram0 ramdisk_size=3000000 ip=dhcp iso-url=http://10.0.0.20/srv/images/oracular-live-server-amd64.iso autoinstall ds=nocloud-net;s=http://10.0.0.20/srv/ks/'
+
+  - name: activating the ks-server configuration in apache
+    shell: sudo a2ensite ks-server.conf
+
+  - name: Restart apache
+    service:
+      name: apache2
+      state: restarted
+
+  - name: Restart dnsmasq
+    service:
+      name: dnsmasq
+      state: restarted
