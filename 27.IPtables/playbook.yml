@@ -1,0 +1,26 @@
+---
+- hosts: inetRouter inetRouter2 centralRouter centralServer
+  become: yes
+  tasks:
+
+    - name: Configure default route via inetRouter on centralRouter
+      command: ip route add default via 192.168.255.1 dev enp0s8
+
+    - name: Add route for Nginx via inetRouter2 on centralRouter
+      command: ip route add 192.168.255.4/30 via 192.168.255.6 dev enp0s9
+
+    - name: Enable NAT on inetRouter
+      iptables:
+        table: nat
+        chain: POSTROUTING
+        jump: MASQUERADE
+        out_interface: enp0s3
+
+    - name: Allow traffic to Nginx on port 8080 via inetRouter2
+      iptables:
+        chain: FORWARD
+        protocol: tcp
+        destination_port: 8080
+        in_interface: enp0s3
+        out_interface: enp0s8
+        jump: ACCEPT

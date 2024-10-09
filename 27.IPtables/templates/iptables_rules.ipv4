@@ -1,0 +1,48 @@
+*filter
+:INPUT DROP [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+
+# Полный доступ через интерфейс enp0s3
+-A INPUT -i enp0s3 -j ACCEPT
+
+# Разрешаем установленные и связанные соединения на входе через enp0s8
+-A INPUT -i enp0s8 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# Разрешаем трафик на loopback интерфейс (localhost)
+-A INPUT -i lo -j ACCEPT
+
+# Разрешаем ping (ICMP) для диагностики через enp0s8
+-A INPUT -i enp0s8 -p icmp -j ACCEPT
+
+# Разрешаем knock-последовательности только через интерфейс enp0s8 (пример: 7000, 8000, 9000)
+-A INPUT -i enp0s8 -p tcp --dport 7000 -j ACCEPT
+-A INPUT -i enp0s8 -p tcp --dport 8000 -j ACCEPT
+-A INPUT -i enp0s8 -p tcp --dport 9000 -j ACCEPT
+
+# По умолчанию блокируем SSH через enp0s8 (до knock)
+-A INPUT -i enp0s8 -p tcp --dport 22 -j DROP
+
+# Это правило добавляется динамически через knockd, чтобы временно разрешить SSH через enp0s8
+# Оно не должно быть в статическом конфиге, knockd добавит его после knock-последовательности.
+# -A INPUT -i enp0s8 -p tcp --dport 22 -j ACCEPT
+
+# Запрещаем все остальные подключения через enp0s8
+-A INPUT -i enp0s8 -j DROP
+
+# Разрешаем форвардинг между интерфейсами enp0s8 и enp0s3
+-A FORWARD -i enp0s8 -o enp0s3 -j ACCEPT
+-A FORWARD -i enp0s3 -o enp0s8 -m state --state RELATED,ESTABLISHED -j ACCEPT
+
+COMMIT
+
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+
+# Правило маскарадинга для NAT на интерфейсе enp0s3
+-A POSTROUTING -o enp0s3 -j MASQUERADE
+
+COMMIT

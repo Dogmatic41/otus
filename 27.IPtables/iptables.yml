@@ -1,0 +1,193 @@
+---
+- name:
+  hosts: inetRouter
+  become: yes
+  tasks:
+
+  - name: Restart ufw 
+    service: 
+      name: ufw
+      state: stopped
+      enabled: false
+
+  - name: Set up NAT on inetRouter
+    template: 
+      src: "{{ item.src }}"
+      dest: "{{ item.dest }}"
+      owner: root
+      group: root
+      mode: "{{ item.mode }}"
+    with_items:
+      - { src: "iptables_rules.ipv4", dest: "/etc/iptables_rules.ipv4", mode: "0644" }
+      - { src: "iptables_restore", dest: "/etc/network/if-pre-up.d/iptables", mode: "0755" }
+    when: (ansible_hostname == "inetRouter")
+
+  - name: Apply iptables rules with iptables-restore
+    ansible.builtin.shell: |
+      iptables-restore < /etc/iptables_rules.ipv4
+    args:
+      executable: /bin/bash
+    become: yes  # Выполнение команды от имени суперпользователя
+
+
+- name:
+  hosts: routers
+  become: yes
+  tasks:
+
+  - name: set up forward packages across routers
+    sysctl:
+      name: net.ipv4.conf.all.forwarding
+      value: '1'
+      state: present
+    when: "'routers' in group_names"
+
+- name:
+  hosts: all
+  become: yes
+  tasks:
+
+  - name: disable default route
+    template: 
+      src: 00-installer-config.yaml
+      dest: /etc/netplan/00-installer-config.yaml
+      owner: root
+      group: root
+      mode: 0644
+    when: (ansible_hostname != "inetRouter") 
+
+  - name: Install traceroute
+    apt:
+      name: traceroute
+      state: present
+
+  - name: add default gateway for centralRouter
+    template: 
+      src: "50-vagrant_{{ansible_hostname}}.yaml"
+      dest: /etc/netplan/50-vagrant.yaml
+      owner: root
+      group: root
+      mode: 0644
+
+- name:
+  hosts: centralServer
+  become: yes
+  tasks:
+
+  - name: Install nginx
+    apt:
+      name: nginx
+      state: present
+
+
+- name: Create user and setup SSH on inetRouter
+  hosts: inetRouter
+  become: yes
+  vars:
+    ssh_user: knock_user
+  tasks:
+    - name: Enable port knocking
+      copy:
+        dest: /etc/knockd.conf
+        content: |
+          [options]
+          logfile = /var/log/knockd.log
+
+          [openSSH]
+          sequence = 7000,8000,9000
+          seq_timeout = 5
+          command = /sbin/iptables -A INPUT -s %IP% -p tcp --dport 22 -j ACCEPT
+          tcpflags = syn
+
+          [closeSSH]
+          sequence = 9000,8000,7000
+          seq_timeout = 5
+          command = /sbin/iptables -D INPUT -s %IP% -p tcp --dport 22 -j ACCEPT
+          tcpflags = syn
+
+    - name: Enable port knocking
+      copy:
+        dest: /etc/systemd/system/knockd.service
+        content: |
+          [Unit]
+          Description=Knock Daemon
+          After=network.target
+
+          [Service]
+          ExecStart=/usr/sbin/knockd -D -c /etc/knockd.conf
+          ExecReload=/bin/kill -HUP $MAINPID
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: daemon-reload
+      command: systemctl daemon-reload
+
+    - name: Enable knockd service
+      service:
+        name: knockd
+        enabled: true
+        state: started
+
+    - name: Create a new user
+      ansible.builtin.user:
+        name: "{{ ssh_user }}"
+        shell: /bin/bash
+        create_home: yes
+        state: present
+
+    - name: Create .ssh directory
+      ansible.builtin.file:
+        path: "/home/{{ ssh_user }}/.ssh"
+        state: directory
+        owner: "{{ ssh_user }}"
+        mode: '0700'
+
+    - name: Generate SSH key pair for the user
+      ansible.builtin.openssh_keypair:
+        path: "/home/{{ ssh_user }}/.ssh/id_rsa"
+        type: rsa
+        size: 2048
+        owner: "{{ ssh_user }}"
+        mode: '0600'
+
+    - name: Set the public key as authorized key for the user
+      ansible.builtin.fetch:
+        src: "/home/{{ ssh_user }}/.ssh/id_rsa"
+        dest: "./27.IPtables/templates"
+        owner: "{{ ssh_user }}"
+        mode: '0600'
+
+    - name: Ensure correct ownership for .ssh directory and files
+      ansible.builtin.file:
+        path: "/home/{{ ssh_user }}/.ssh"
+        owner: "{{ ssh_user }}"
+        recurse: yes
+
+    - name: mv id_rsa.pub
+      shell: mv /home/{{ ssh_user }}/.ssh/id_rsa.pub /home/{{ ssh_user }}/.ssh/authorized_keys
+
+- name: Port knocking and SSH user setup
+  hosts: centralRouter
+  become: yes
+  tasks:
+    - name: copy id_rsa
+      ansible.builtin.copy:
+        src: templates/inetRouter/home/knock_user/.ssh/id_rsa
+        dest: /home/vagrant
+
+    - name: Install knockd client
+      apt:
+        name: knockd
+        update_cache: yes
+
+    - name: Add knock script
+      copy:
+        dest: /usr/local/bin/knock.sh
+        content: |
+          #!/bin/bash
+          knock inetRouter 7000 8000 9000
+          ssh -i /home/vagrant/id_rsa knock_user@192.168.255.1
+        mode: '0755'
+
