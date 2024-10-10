@@ -1,0 +1,82 @@
+- name: OSPF
+  hosts: all
+  become: yes
+  tasks:
+  - name: update repo
+    apt:
+      upgrade: yes
+      update_cache: yes
+
+  - name: install base tools
+    apt:
+      name:
+        - traceroute
+        - tcpdump
+        - net-tools
+      state: present
+
+  - name: stop ufw
+    service:
+      name: ufw
+      state: stopped
+      enabled: false
+
+  - name: Install gpg key
+    shell: curl -s https://deb.frrouting.org/frr/keys.asc | sudo apt-key add -
+
+  - name: Add repo list
+    shell: echo "deb https://deb.frrouting.org/frr bionic frr-8" | sudo tee -a /etc/apt/sources.list.d/frr.list
+      
+  - name: update repo
+    apt:
+      upgrade: yes
+      update_cache: yes
+
+  - name: install frr 
+    apt:
+      name: frr
+      state: present
+
+  - name: install frr-pythontools 
+    apt:
+      name: frr-pythontools
+      state: present
+
+  - name: set up forward packages across routers
+    sysctl:
+      name: net.ipv4.conf.all.forwarding
+      value: '1'
+      state: present
+
+  - name: Ensure zebra is set to yes
+    ansible.builtin.lineinfile:
+      path: /etc/frr/daemons
+      regexp: '^zebra=no'
+      line: 'zebra=yes'
+      backrefs: yes
+
+  - name: Ensure ospfd is set to yes
+    ansible.builtin.lineinfile:
+      path: /etc/frr/daemons
+      regexp: '^ospfd=no'
+      line: 'ospfd=yes'
+      backrefs: yes
+
+  - name: Copy the appropriate config file based on the hostname
+    copy:
+      src: "templates/{{ inventory_hostname }}_frr.conf"
+      dest: "/etc/frr/frr.conf" 
+    when: "'{{ inventory_hostname }}_frr.conf' in lookup('fileglob', 'templates/*.conf')"
+
+  - name:
+    ansible.builtin.file:
+      path: /etc/frr/frr.conf
+      owner: frr
+      group: frr
+      mode: 0640
+
+  - name: Перезапуск FRR
+    systemd:
+      name: frr
+      state: restarted
+      enabled: true
