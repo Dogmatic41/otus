@@ -11,6 +11,8 @@
 2. vpn_tun.yml
 Первый плейбук настраивает openvpn в режиме tap, второй в режиме tun 
 
+### Скорость iperf3 в режиме tap
 ![Скорость iperf3 в режиме tap](https://github.com/Dogmatic41/otus/blob/main/34.VPN/images/tap.png)
 
+### Cкорость iperf3 в режиме tun
 ![Скорость iperf3 в режиме tun](https://github.com/Dogmatic41/otus/blob/main/34.VPN/images/tun.png)
