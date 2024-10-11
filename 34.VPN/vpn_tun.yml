@@ -1,0 +1,38 @@
+- name: kill pid openvpn
+  hosts: all
+  become: yes
+  tasks:
+
+  - name: kill pid openvpn
+    shell: kill -KILL $(ps aux | grep [o]penvpn | awk '{print $2}')
+
+  - name: 
+    shell: rm /etc/openvpn/server.conf
+  
+- name: configuring the tun config server
+  hosts: server
+  become: yes
+  tasks:
+
+  - name: Copy /etc/openvpn/server.conf
+    copy:
+      src: templates/server(tun).conf
+      dest: /etc/openvpn/server.conf
+
+  - name: start openvpn
+    shell: openvpn --config /etc/openvpn/server.conf --daemon
+
+
+
+- name: configuring the tun config client
+  hosts: client
+  become: yes
+  tasks:
+
+  - name: Copy /etc/openvpn/server.conf
+    copy:
+      src: templates/client(tun).conf
+      dest: /etc/openvpn/server.conf
+
+  - name: start openvpn
+    shell: openvpn --config /etc/openvpn/server.conf --daemon

@@ -1,0 +1,63 @@
+- name: VPN
+  hosts: all
+  become: yes
+  tasks:
+  - name: update repo
+    apt:
+      upgrade: yes
+      update_cache: yes
+
+  - name: install base tools
+    apt:
+      name:
+        - openvpn
+        - iperf3
+      state: present
+
+  - name: stop ufw
+    service:
+      name: ufw
+      state: stopped
+      enabled: false
+
+- name: configuring the tap config server
+  hosts: server
+  become: yes
+  tasks:
+  - name: Create static.key
+    shell: openvpn --genkey --secret /etc/openvpn/static.key
+
+  - name: copy key 
+    fetch:
+      src: "/etc/openvpn/static.key"
+      dest: "templates/static.key"
+      flat: yes
+
+  - name: Copy /etc/openvpn/server.conf
+    copy:
+      src: templates/server(tap).conf
+      dest: /etc/openvpn/server.conf
+      
+
+
+- name: configuring the tap config client
+  hosts: client
+  become: true
+  tasks:
+  - name: Copy /etc/openvpn/server.conf
+    copy:
+      src: templates/client(tap).conf
+      dest: /etc/openvpn/server.conf
+
+  - name: Copy static.key
+    copy:
+      src: templates/static.key
+      dest: /etc/openvpn/static.key
+
+
+- name: Start config
+  hosts: all
+  become: true
+  tasks:
+  - name: start openvpn
+    shell: openvpn --config /etc/openvpn/server.conf --daemon
