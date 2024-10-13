@@ -1,0 +1,18 @@
+[vlan]
+[vlan:children]
+router
+vlan1
+vlan2
+
+[router]
+inetRouter ansible_host=127.0.0.1 ansible_port=2222 ansible_private_key_file=/Users/admin/otus/36.VLAN/.vagrant/machines/inetRouter/virtualbox/private_key bond_ip=192.168.255.1
+centralRouter ansible_host=127.0.0.1 ansible_port=2200 ansible_private_key_file=/Users/admin/otus/36.VLAN/.vagrant/machines/centralRouter/virtualbox/private_key bond_ip=192.168.255.2
+office1Router ansible_host=127.0.0.1 ansible_port=2201 ansible_private_key_file=/Users/admin/otus/36.VLAN/.vagrant/machines/office1Router/virtualbox/private_key
+
+[vlan1]
+testClient1 ansible_host=127.0.0.1 ansible_port=2202 ansible_private_key_file=/Users/admin/otus/36.VLAN/.vagrant/machines/testClient1/virtualbox/private_key vlan_id=1 vlan_ip=10.10.10.254
+testServer1 ansible_host=127.0.0.1 ansible_port=2203 ansible_private_key_file=/Users/admin/otus/36.VLAN/.vagrant/machines/testServer1/virtualbox/private_key vlan_id=1 vlan_ip=10.10.10.1
+
+[vlan2]
+testClient2 ansible_host=127.0.0.1 ansible_port=2204 ansible_private_key_file=/Users/admin/otus/36.VLAN/.vagrant/machines/testClient2/virtualbox/private_key vlan_id=2 vlan_ip=10.10.10.254
+testServer2 ansible_host=127.0.0.1 ansible_port=2205 ansible_private_key_file=/Users/admin/otus/36.VLAN/.vagrant/machines/testServer2/virtualbox/private_key vlan_id=2 vlan_ip=10.10.10.1
