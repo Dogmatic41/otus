@@ -1,0 +1,44 @@
+---
+- name: Install ipa
+  hosts: all
+  become: yes
+  tasks:
+
+  - name: Set up timezone
+    timezone:
+      name: "Europe/Moscow"
+
+  - name: Install softs
+    yum:
+      name: 
+        - chrony
+        - nano
+      state: present
+      
+  - name: Started chrony
+    service:
+      name: chronyd
+      state: started
+      enabled: true
+
+  - name: stopped firewalld
+    service:
+      name: firewalld
+      state: stopped
+      enabled: false
+      
+  - name:
+    template:
+      path: /etc/hosts
+      line: "{{ inventory_hostname  }} {{ ip_lan }}"
+      insertafter: EOF
+
+  - name: install module ipa-client
+    yum:
+      name:
+        - freeipa-client
+      state: present
+      update_cache: true
+  
+  - name: add host to ipa-server
+    shell: echo -e "yes\nyes" | ipa-client-install --mkhomedir --domain=OTUS.LAN --server=ipa.otus.lan --no-ntp -p admin -w password123

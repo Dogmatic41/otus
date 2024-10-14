@@ -1,0 +1,11 @@
+[ldap]
+[ldap:children]
+ldap_server
+clients
+
+[ldap_server]
+ipa.otus.lan ansible_host=127.0.0.1 ansible_port=2222 ansible_private_key_file=/Users/admin/otus/37.LDAP/.vagrant/machines/ipa.otus.lan/virtualbox/private_key ip_lan=192.168.57.10
+
+[clients]
+client1.otus.lan ansible_host=127.0.0.1 ansible_port=2200 ansible_private_key_file=/Users/admin/otus/37.LDAP/.vagrant/machines/client1.otus.lan/virtualbox/private_key ip_lan=192.168.57.11
+client2.otus.lan ansible_host=127.0.0.1 ansible_port=2201 ansible_private_key_file=/Users/admin/otus/37.LDAP/.vagrant/machines/client2.otus.lan/virtualbox/private_key ip_lan=192.168.57.12

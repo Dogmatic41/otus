@@ -1,0 +1,31 @@
+Vagrant.configure("2") do |config|
+    config.vm.box = "generic/centos7"
+ 
+    config.vm.provider :virtualbox do |v|
+      v.memory = 2048
+      v.cpus = 1
+    end
+  
+    boxes = [
+      { :name => "ipa.otus.lan",
+        :ip => "192.168.57.10",
+      },
+      { :name => "client1.otus.lan",
+        :ip => "192.168.57.11",
+      },
+      { :name => "client2.otus.lan",
+        :ip => "192.168.57.12",
+      }
+    ]
+    boxes.each do |opts|
+      config.vm.define opts[:name] do |config|
+        config.vm.hostname = opts[:name]
+        config.vm.network "private_network", ip: opts[:ip]
+      end
+    config.vm.provision "shell", inline: <<-SHELL
+      sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/CentOS*.repo
+      sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/CentOS*.repo
+      sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/CentOS*.repo
+    SHELL
+    end
+  end
