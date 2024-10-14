@@ -1,0 +1,91 @@
+---
+- name: Подготовка стенда для Nginx + PHP-FPM (WordPress) + Python (Django) + Node.js
+  hosts: web
+  become: true
+
+  tasks:
+    - name: Обновление списка пакетов
+      apt:
+        update_cache: yes
+
+    - name: Установка необходимых пакетов
+      apt:
+        name:
+          - nginx
+          - php-fpm
+          - php-mysql
+          - php-xml
+          - php-curl
+          - php-gd
+          - php-mbstring
+          - python3
+          - python3-pip
+          - python3-venv
+          - mysql-server
+          - curl
+        state: present
+
+    - name: Установка Node.js и npm
+      shell: |
+        curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+        apt install -y nodejs
+
+    - name: Настройка PHP-FPM
+      lineinfile:
+        path: /etc/php/7.4/fpm/php.ini
+        regexp: '^;cgi.fix_pathinfo='
+        line: 'cgi.fix_pathinfo=0'
+        state: present
+      notify: Restart PHP-FPM
+
+    - name: Создание базы данных для WordPress
+      mysql_db:
+        name: wordpress
+        state: present
+
+    - name: Создание пользователя для WordPress в базе данных
+      mysql_user:
+        name: wordpress_user
+        password: "your_secure_password"
+        priv: 'wordpress.*:ALL'
+        state: present
+
+    - name: Загрузка и установка WordPress
+      shell: |
+        cd /var/www/html
+        wget https://wordpress.org/latest.tar.gz
+        tar -xzf latest.tar.gz
+        chown -R www-data:www-data /var/www/html/wordpress
+        rm latest.tar.gz
+
+    - name: Установка виртуальной среды для Django
+      shell: |
+        python3 -m venv /var/www/django/venv
+        source /var/www/django/venv/bin/activate
+        pip install django
+      args:
+        creates: /var/www/django/venv
+
+    - name: Создание нового проекта Django
+      shell: |
+        source /var/www/django/venv/bin/activate
+        django-admin startproject myproject /var/www/django/myproject
+      args:
+        creates: /var/www/django/myproject
+
+    - name: Настройка Nginx для WordPress и Django
+      template:
+        src: nginx_conf.j2
+        dest: /etc/nginx/sites-available/default
+      notify: Restart Nginx
+
+  handlers:
+    - name: Restart Nginx
+      service:
+        name: nginx
+        state: restarted
+
+    - name: Restart PHP-FPM
+      service:
+        name: php7.4-fpm
+        state: restarted
