@@ -4,15 +4,34 @@
   become: yes
   tasks:
 
+  - name: 
+    shell: sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/CentOS*.repo
+
+  - name: 
+    shell: sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/CentOS*.repo
+
+  - name: 
+    shell: sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/CentOS*.repo
+
+  - name: 
+    shell: sed -i '1s/^/[centos-cr]\n/' /etc/yum.repos.d/CentOS-CR.repo
+
+  - name: 
+    shell: sed -i '1s/^/[centos-vault]\nname=CentOS-Vault\n/' /etc/yum.repos.d/CentOS-Vault.repo
+
+  - name: 
+    shell: sed -i '1s/^/[centos-fasttrack]\nname=CentOS-Fasttrack\n/' /etc/yum.repos.d/CentOS-fasttrack.repo
+      
+  - name:
+    shell: yum update -y
+
   - name: Set up timezone
     timezone:
       name: "Europe/Moscow"
 
   - name: Install softs
     yum:
-      name: 
-        - chrony
-        - nano
+      name: nano
       state: present
       
   - name: Started chrony
@@ -28,10 +47,47 @@
       enabled: false
       
   - name:
-    template:
+    lineinfile:
       path: /etc/hosts
-      line: "{{ inventory_hostname  }} {{ ip_lan }}"
+      line: "{{ ip_lan }} {{ inventory_hostname  }} ipa"
       insertafter: EOF
+
+- name: Configuring the ipa server
+  hosts: ipa.otus.lan
+  become: yes
+  tasks:
+
+  - name: Ensure net.ipv6.conf.all.disable_ipv6 is set to 0
+    lineinfile:
+      path: /etc/sysctl.conf
+      regexp: '^net.ipv6.conf.all.disable_ipv6'
+      line: 'net.ipv6.conf.all.disable_ipv6 = 0'
+      state: present
+
+  - name: Ensure net.ipv6.conf.default.disable_ipv6 is set to 0
+    lineinfile:
+      path: /etc/sysctl.conf
+      line: 'net.ipv6.conf.default.disable_ipv6 = 0'
+      state: present
+
+  - name: Ensure net.ipv6.conf.lo.disable_ipv6 is set to 0
+    lineinfile:
+      path: /etc/sysctl.conf
+      line: 'net.ipv6.conf.lo.disable_ipv6 = 0'
+      state: present
+
+  - name: Apply sysctl changes
+    command: sysctl -p
+
+  - name: Install ipa-server
+    yum:
+      name: ipa-server
+      state: present
+
+- name: Setting up a client group
+  hosts: clients
+  become: yes
+  tasks:
 
   - name: install module ipa-client
     yum:
@@ -39,6 +95,12 @@
         - freeipa-client
       state: present
       update_cache: true
+
+  - name:
+    lineinfile:
+      path: /etc/hosts
+      line: "192.168.57.10 ipa.otus.lan ipa"
+      insertafter: EOF
   
   - name: add host to ipa-server
     shell: echo -e "yes\nyes" | ipa-client-install --mkhomedir --domain=OTUS.LAN --server=ipa.otus.lan --no-ntp -p admin -w password123
