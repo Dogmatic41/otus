@@ -1,0 +1,2 @@
+[web]
+web ansible_host=127.0.0.1 ansible_port=2222 ansible_private_key_file=/Users/admin/otus/41.WEB/.vagrant/machines/web/virtualbox/private_key

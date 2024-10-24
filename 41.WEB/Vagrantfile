@@ -1,14 +1,12 @@
 Vagrant.configure("2") do |config|
-    config.vm.box = "ubuntu/bionic64" 
+    config.vm.box = "debian/bookworm64" 
     config.vm.define "web" do |server| 
-    server.vm.hostname = "web" 
-          server.vm.network "private_network", ip: "192.168.56.10" 
+        server.vm.hostname = "web" 
+        server.vm.network "private_network", ip: "192.168.56.10" 
     end 
     
     config.vm.provision "shell", inline: <<-SHELL
-    apt update -y
-    apt upgrade -y
+        apt update -y
+        apt upgrade -y
     SHELL
-    end 
 end
-    

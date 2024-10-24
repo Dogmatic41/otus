@@ -1,91 +1,219 @@
 ---
-- name: Подготовка стенда для Nginx + PHP-FPM (WordPress) + Python (Django) + Node.js
+- name: Setup Nginx + PHP-FPM (WordPress) + Python (Flask) + Node.js on Debian 12
   hosts: web
   become: true
-
   tasks:
-    - name: Обновление списка пакетов
-      apt:
-        update_cache: yes
+  - name: Устанавливаем необходимые пакеты
+    apt: 
+      name:
+        - nginx
+        - fish
+        - net-tools
+        - wget
+        - unzip
+      state: present
+  
+  - name: Start nginx
+    service:
+      name: nginx
+      state: started
+      enabled: true
 
-    - name: Установка необходимых пакетов
-      apt:
-        name:
-          - nginx
-          - php-fpm
-          - php-mysql
-          - php-xml
-          - php-curl
-          - php-gd
-          - php-mbstring
-          - python3
-          - python3-pip
-          - python3-venv
-          - mysql-server
-          - curl
-        state: present
+  - name: install php 
+    apt:
+      name:
+        - php 
+        - php-curl 
+        - php8.2-fpm 
+        - php-bcmath 
+        - php-gd
+        - php-soap 
+        - php-zip
+        - php-curl 
+        - php-mbstring 
+        - php-mysqlnd 
+        - php-gd
+        - php-xml
+        - php-intl
+        - php-zip
+      state: present
 
-    - name: Установка Node.js и npm
-      shell: |
-        curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-        apt install -y nodejs
+  - name: Install mariadb-server
+    apt:
+      name: mariadb-server
+      state: present
 
-    - name: Настройка PHP-FPM
-      lineinfile:
-        path: /etc/php/7.4/fpm/php.ini
-        regexp: '^;cgi.fix_pathinfo='
-        line: 'cgi.fix_pathinfo=0'
-        state: present
-      notify: Restart PHP-FPM
+  - name: Start mariadb
+    service:
+      name: mariadb
+      state: started
+      enabled: true
 
-    - name: Создание базы данных для WordPress
-      mysql_db:
-        name: wordpress
-        state: present
+  - name: Create database for WordPress
+    shell: |
+      mysql -u root -e "CREATE DATABASE wordpress_db;"
 
-    - name: Создание пользователя для WordPress в базе данных
-      mysql_user:
-        name: wordpress_user
-        password: "your_secure_password"
-        priv: 'wordpress.*:ALL'
-        state: present
+  - name: Grant privileges to WordPress user
+    shell: |
+      mysql -u root -e "GRANT ALL PRIVILEGES ON wordpress_db.* TO 'wordpress_user'@'localhost' IDENTIFIED BY 'password';"
 
-    - name: Загрузка и установка WordPress
-      shell: |
-        cd /var/www/html
-        wget https://wordpress.org/latest.tar.gz
-        tar -xzf latest.tar.gz
-        chown -R www-data:www-data /var/www/html/wordpress
-        rm latest.tar.gz
+  - name: Flush privileges
+    shell: |
+      mysql -u root -e "FLUSH PRIVILEGES;"
 
-    - name: Установка виртуальной среды для Django
-      shell: |
-        python3 -m venv /var/www/django/venv
-        source /var/www/django/venv/bin/activate
-        pip install django
-      args:
-        creates: /var/www/django/venv
+  - name:
+    get_url:
+      url: https://wordpress.org/latest.zip
+      dest: /var/www/
 
-    - name: Создание нового проекта Django
-      shell: |
-        source /var/www/django/venv/bin/activate
-        django-admin startproject myproject /var/www/django/myproject
-      args:
-        creates: /var/www/django/myproject
+  - name: Unzip WordPress
+    shell: unzip /var/www/wordpress-6.6.2.zip -d /var/www/html/
 
-    - name: Настройка Nginx для WordPress и Django
-      template:
-        src: nginx_conf.j2
-        dest: /etc/nginx/sites-available/default
-      notify: Restart Nginx
+  - name:
+    shell: cp /var/www/html/wordpress/wp-config-sample.php /var/www/html/wordpress/wp-config.php
 
-  handlers:
-    - name: Restart Nginx
-      service:
-        name: nginx
-        state: restarted
+  - name: Replace DB_NAME in wp-config.php
+    ansible.builtin.replace:
+      path: /var/www/html/wordpress/wp-config.php
+      regexp: "^define\\( 'DB_NAME', '.*' \\);"
+      replace: "define( 'DB_NAME', 'wordpress_db' );"
 
-    - name: Restart PHP-FPM
-      service:
-        name: php7.4-fpm
-        state: restarted
+  - name: Replace DB_USER in wp-config.php
+    ansible.builtin.replace:
+      path: /var/www/html/wordpress/wp-config.php
+      regexp: "^define\\( 'DB_USER', '.*' \\);"
+      replace: "define( 'DB_USER', 'wordpress_user' );"
+
+  - name: Replace DB_PASSWORD in wp-config.php
+    ansible.builtin.replace:
+      path: /var/www/html/wordpress/wp-config.php
+      regexp: "^define\\( 'DB_PASSWORD', '.*' \\);"
+      replace: "define( 'DB_PASSWORD', 'password' );"
+
+  - name: Copy nginx config
+    template:
+      src: templates/worldpress.conf
+      dest: /etc/nginx/conf.d/worldpress.conf
+
+  - name: Install nodejs
+    shell: sudo curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt install nodejs -y
+
+  - name:
+    template:
+      src: templates/test.js
+      dest: /home/vagrant/test.js
+      
+  - name:
+    template:
+      src: templates/node.conf
+      dest: /etc/nginx/conf.d/node.conf
+
+  - name:
+    shell: nohup node /home/vagrant/test.js &
+
+
+  - name: Install required packages
+    apt:
+      name:
+        - python3-pip
+        - python3-dev
+        - git
+        - virtualenv
+      state: present
+
+  - name: Create project directory
+    file:
+      path: /opt/flask_app
+      state: directory
+
+  - name: Create virtual environment
+    command: virtualenv /opt/flask_app/venv
+    args:
+      creates: /opt/flask_app/venv
+
+  - name: Create requirements.txt for Flask
+    copy:
+      dest: /opt/flask_app/venv/requirements.txt
+      content: |
+        Flask
+
+  - name: Install Flask in virtual environment
+    pip:
+      requirements: /opt/flask_app/venv/requirements.txt
+      virtualenv: /opt/flask_app/venv
+
+  - name: Create Flask application
+    copy:
+      dest: /opt/flask_app/app.py
+      content: |
+        from flask import Flask
+
+        app = Flask(__name__)
+
+        @app.route('/')
+        def hello():
+            return "Hello, Flask is running on port 8081!"
+
+        if __name__ == '__main__':
+            app.run(host='0.0.0.0', port=5000)
+
+  - name: Create systemd service for Flask app
+    copy:
+      dest: /etc/systemd/system/flask_app.service
+      content: |
+        [Unit]
+        Description=Flask Application
+        After=network.target
+
+        [Service]
+        User=root
+        Group=www-data
+        WorkingDirectory=/opt/flask_app
+        Environment="PATH=/opt/flask_app/venv/bin"
+        ExecStart=/opt/flask_app/venv/bin/python /opt/flask_app/app.py
+
+        [Install]
+        WantedBy=multi-user.target
+
+  - name: Start and enable Flask service
+    systemd:
+      name: flask_app
+      state: started
+      enabled: true
+
+  - name: Create Nginx configuration
+    copy:
+      dest: /etc/nginx/sites-available/flask_app
+      content: |
+        server {
+            listen 8081;
+            server_name localhost;
+
+            location / {
+                proxy_pass http://127.0.0.1:5000;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+            }
+        }
+
+  - name: Enable Nginx configuration
+    file:
+      src: /etc/nginx/sites-available/flask_app
+      dest: /etc/nginx/sites-enabled/flask_app
+      state: link
+
+  - name: Remove default Nginx configuration
+    file:
+      path: /etc/nginx/sites-enabled/default
+      state: absent
+
+  - name: Test Nginx configuration
+    command: nginx -t
+
+  - name: Start and enable Nginx
+    systemd:
+      name: nginx
+      state: restarted
+      enabled: true
