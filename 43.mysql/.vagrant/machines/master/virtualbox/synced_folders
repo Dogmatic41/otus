@@ -1,0 +1,1 @@
+{"rsync":{"/vagrant":{"type":"rsync","guestpath":"/vagrant","hostpath":"/Users/admin/otus/43.mysql","disabled":false,"__vagrantfile":true,"owner":"vagrant","group":"vagrant"}}}

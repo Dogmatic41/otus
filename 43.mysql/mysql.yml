@@ -1,0 +1,56 @@
+---
+- name: Install mysql rep
+  hosts: all
+  become: yes
+  tasks:
+
+  - name: 
+    shell: sudo sed -i 's|^mirrorlist=|#mirrorlist=|g; s|^#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*.repo
+      
+  - name:
+    shell: yum update -y
+
+  - name: Set up timezone
+    timezone:
+      name: "Europe/Moscow"
+      
+  - name: Install Percona repository
+    shell: yum install https://repo.percona.com/yum/percona-release-latest.noarch.rpm -y
+
+  - name: Update repository cache
+    yum:
+      name: '*'
+      state: latest
+      update_cache: yes
+
+  - name:
+    shell: percona-release setup ps57
+
+  - name: Install Percona server
+    yum:
+      name: Percona-Server-server-57
+      state: present
+
+  - name: Copy conf 
+    copy:
+      src: conf/conf.d/
+      dest: /etc/my.cnf.d/
+
+  # - name:
+  #   service:
+  #     name: mysql
+  #     state: started
+  #     enabled: true
+
+
+- name: Настройка master
+  become: yes
+  hosts: master
+  tasks:
+
+  - name: Copy dump 
+    copy:
+      src: bet.dmp
+      dest: /home/vagrant/
+
+
